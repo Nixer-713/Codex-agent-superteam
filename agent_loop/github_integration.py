@@ -212,6 +212,9 @@ def github_pr_create(root: Path, run_dir: Path, draft: bool, dry_run: bool) -> t
         raise RuntimeError("current branch is unknown")
     if branch == default or branch in {"main", "master"}:
         raise RuntimeError("github-pr-create refuses to run on the default branch")
+    ahead = git_utils.git(root, "rev-list", "--count", f"main..{branch}")
+    if ahead.returncode == 0 and ahead.stdout.strip() == "0":
+        raise RuntimeError("no commits ahead of main; run accept --commit or commit your changes before creating a PR")
     title = run_task_id(run_dir)
     push_cmd = ["git", "push", "-u", "origin", branch]
     pr_cmd = ["gh", "pr", "create", "--title", title, "--body-file", str(body_path)]

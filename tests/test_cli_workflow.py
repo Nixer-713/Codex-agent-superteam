@@ -769,6 +769,7 @@ def test_github_pr_create_dry_run_outputs_commands_on_feature_branch(tmp_path):
     (root / "docs" / "github-dry.md").write_text("# GitHub Dry\n", encoding="utf-8")
     assert run_cli("complete", run_id, "--root", str(root), "--agent-id", "worker-1").returncode == 0
     assert run_cli("watch", run_id, "--root", str(root), "--agent-id", "worker-1", "--timeout", "0").returncode == 0
+    assert run_cli("accept", run_id, "--root", str(root), "--commit").returncode == 0
 
     result = run_cli("github-pr-create", run_id, "--root", str(root), "--dry-run", "--draft")
 
@@ -776,3 +777,24 @@ def test_github_pr_create_dry_run_outputs_commands_on_feature_branch(tmp_path):
     assert "git push" in result.stdout
     assert "gh pr create" in result.stdout
     assert "--draft" in result.stdout
+
+
+def test_github_pr_create_dry_run_requires_branch_commit(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    init_git_repo(root)
+    git(root, "checkout", "-b", "codex/no-commit")
+    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    assert run_cli("init", "--root", str(root)).returncode == 0
+    assert run_cli("new-task", "GitHub no commit", "--root", str(root), "--allowed", "docs/**").returncode == 0
+    started = run_cli("run-next", "--root", str(root))
+    run_id = started.stdout.strip().split()[-1]
+    (root / "docs").mkdir()
+    (root / "docs" / "github-no-commit.md").write_text("# No Commit\n", encoding="utf-8")
+    assert run_cli("complete", run_id, "--root", str(root), "--agent-id", "worker-1").returncode == 0
+    assert run_cli("watch", run_id, "--root", str(root), "--agent-id", "worker-1", "--timeout", "0").returncode == 0
+
+    result = run_cli("github-pr-create", run_id, "--root", str(root), "--dry-run", "--draft")
+
+    assert result.returncode == 1
+    assert "no commits ahead" in result.stderr
