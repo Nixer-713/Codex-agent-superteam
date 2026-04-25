@@ -39,6 +39,10 @@ def default_branch(root: Path) -> str:
     symbolic = git_utils.git(root, "symbolic-ref", "refs/remotes/origin/HEAD")
     if symbolic.returncode == 0 and symbolic.stdout.strip():
         return symbolic.stdout.strip().split("/")[-1]
+    for branch in ["main", "master", "trunk"]:
+        exists = git_utils.git(root, "rev-parse", "--verify", branch)
+        if exists.returncode == 0:
+            return branch
     return "main"
 
 

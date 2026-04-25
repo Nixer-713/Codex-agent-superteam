@@ -804,6 +804,29 @@ def test_github_pr_create_uses_origin_default_branch_for_ahead_check(tmp_path):
     assert "gh pr create" in result.stdout
 
 
+def test_github_pr_create_falls_back_to_existing_local_base_branch(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    init_git_repo(root)
+    git(root, "branch", "-m", "master")
+    git(root, "checkout", "-b", "codex/github-master")
+    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    assert run_cli("init", "--root", str(root)).returncode == 0
+    assert run_cli("new-task", "GitHub master", "--root", str(root), "--allowed", "docs/**").returncode == 0
+    started = run_cli("run-next", "--root", str(root))
+    run_id = started.stdout.strip().split()[-1]
+    (root / "docs").mkdir()
+    (root / "docs" / "github-master.md").write_text("# GitHub Master\n", encoding="utf-8")
+    assert run_cli("complete", run_id, "--root", str(root), "--agent-id", "worker-1").returncode == 0
+    assert run_cli("watch", run_id, "--root", str(root), "--agent-id", "worker-1", "--timeout", "0").returncode == 0
+    assert run_cli("accept", run_id, "--root", str(root), "--commit").returncode == 0
+
+    result = run_cli("github-pr-create", run_id, "--root", str(root), "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    assert "gh pr create" in result.stdout
+
+
 def test_github_pr_create_dry_run_requires_branch_commit(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
