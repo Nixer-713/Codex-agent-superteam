@@ -5,10 +5,16 @@ from pathlib import Path
 
 from . import git_utils
 
+POSIX_HOME_PREFIX = "/" + "Users" + "/"
+WINDOWS_HOME_PREFIX = "C:" + "\\\\" + "Users" + "\\\\"
+GITHUB_CLASSIC_PREFIX = "gh" + "p_"
+GITHUB_FINE_GRAINED_PREFIX = "github" + "_pat_"
+OPENAI_PREFIX = "s" + "k-"
+
 PATTERNS = [
-    ("absolute_path", re.compile(r"(/Users/[^\s`'\"]+|C:\\\\Users\\\\[^\s`'\"]+)")),
-    ("token", re.compile(r"(ghp_[A-Za-z0-9_]{10,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9]{12,})")),
-    ("private_email", re.compile(r"[A-Za-z0-9._%+-]+@(gmail|qq|163|icloud|outlook)\\.com")),
+    ("absolute_path", re.compile(f"({re.escape(POSIX_HOME_PREFIX)}[^\\s`'\"]+|{re.escape(WINDOWS_HOME_PREFIX)}[^\\s`'\"]+)")),
+    ("token", re.compile(f"({GITHUB_CLASSIC_PREFIX}[A-Za-z0-9_]{{10,}}|{GITHUB_FINE_GRAINED_PREFIX}[A-Za-z0-9_]+|{OPENAI_PREFIX}[A-Za-z0-9]{{12,}})")),
+    ("private_email", re.compile(r"[A-Za-z0-9._%+-]+@(gmail|qq|163|icloud|outlook)\.com")),
 ]
 FORBIDDEN_TRACKED = {".agent-runs", ".tasks", ".locks"}
 

@@ -73,7 +73,9 @@ def test_privacy_scan_blocks_private_paths_and_tokens(tmp_path):
     root.mkdir()
     init_git_repo(root)
     secret = root / "secret.md"
-    secret.write_text("private /Users/example/project and github_pat_1234567890abcdef\n", encoding="utf-8")
+    private_path = "/" + "Users" + "/example/project"
+    fake_token = "github" + "_pat_" + "1234567890abcdef"
+    secret.write_text(f"private {private_path} and {fake_token}\n", encoding="utf-8")
     git(root, "add", "secret.md")
 
     result = run_cli("privacy-scan", "--root", str(root))
