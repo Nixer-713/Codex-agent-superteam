@@ -24,3 +24,6 @@ jobs:
 
       - name: Run tests
         run: python3 -m pytest -q
+
+      - name: Privacy scan
+        run: python3 -m agent_loop.cli privacy-scan --root .

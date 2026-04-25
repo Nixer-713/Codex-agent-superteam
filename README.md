@@ -19,6 +19,24 @@ It is designed for large projects where you need automation, but still want clea
 - **GitHub audit layer**: draft PR creation, PR body evidence sync, CI watching, and PR acceptance checks.
 - **Human final control**: the system prepares evidence; it does not auto-merge PRs.
 
+
+## Installation
+
+Use the repository directly during development:
+
+```bash
+git clone https://github.com/<owner>/codex-agent-superteam.git
+cd codex-agent-superteam
+python3 -m pip install -e .
+agent-loop --help
+```
+
+Or run without installing:
+
+```bash
+python3 -m agent_loop.cli --help
+```
+
 ## Quick Start
 
 Clone this repository, then run the CLI against any Git project you want Codex to work on:
@@ -152,6 +170,24 @@ The workflow runs on pull requests and on pushes to `main` or `codex/**` branche
 
 ```bash
 python3 -m pytest -q
+```
+
+
+## Maturity Roadmap
+
+The current template includes the local task loop, worktree gates, GitHub PR/CI gates, resumable state inspection, privacy scanning, release checks, and final reports. See `docs/roadmap.md` for the maturity roadmap and remaining automation work.
+
+Key newer commands:
+
+```bash
+agent-loop state "$RUN_ID" --root "$PROJECT_ROOT"
+agent-loop resume "$RUN_ID" --root "$PROJECT_ROOT"
+agent-loop orchestrate --root "$PROJECT_ROOT" --parallel 2
+agent-loop review-result "$RUN_ID" --root "$PROJECT_ROOT" --decision revise --reason "..."
+agent-loop revise "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-1
+agent-loop privacy-scan --root "$PROJECT_ROOT"
+agent-loop release-check --root "$PROJECT_ROOT"
+agent-loop report "$RUN_ID" --root "$PROJECT_ROOT"
 ```
 
 ## Protocols
