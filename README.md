@@ -108,6 +108,8 @@ For safe previews, add `--dry-run` to `github-pr-create` or `github-pr-sync`; th
 
 GitHub then provides the remote debugging trail: PR Files changed, commit diffs, CI logs, review comments, blame, compare, and revert.
 
+The repository includes GitHub Actions CI at `.github/workflows/test.yml`. It runs `python3 -m pytest -q` on pull requests and on pushes to `main` or `codex/**` branches, so every PR gets a remote test result in addition to local run evidence.
+
 For isolated parallel workers, combine `auto-next` with `--worktree`:
 
 ```bash
