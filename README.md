@@ -99,9 +99,12 @@ Use GitHub as the remote audit and review layer after local evidence is ready:
 python3 -m agent_loop.cli github-doctor --root "$PROJECT_ROOT"
 python3 -m agent_loop.cli github-pr-body <run-id> --root "$PROJECT_ROOT"
 python3 -m agent_loop.cli github-pr-create <run-id> --root "$PROJECT_ROOT" --draft
+python3 -m agent_loop.cli github-pr-sync <run-id> --root "$PROJECT_ROOT"
 ```
 
-`github-pr-body` writes `github-pr-body.md` into the run directory with task, changed files, scope, risk, validation, review, and diff preview sections. `github-pr-create` pushes the current feature branch and creates a draft PR; it refuses to run from `main`/`master` and does not merge.
+`github-pr-body` writes `github-pr-body.md` into the run directory with task, changed files, scope, risk, validation, review, and diff preview sections. `github-pr-create` pushes the current feature branch and creates a draft PR; it refuses to run from `main`/`master` and does not merge. `github-pr-sync` regenerates the same evidence-based body and updates the current branch's existing PR with `gh pr edit --body-file`.
+
+For safe previews, add `--dry-run` to `github-pr-create` or `github-pr-sync`; this prints the Git/GitHub commands without contacting GitHub.
 
 GitHub then provides the remote debugging trail: PR Files changed, commit diffs, CI logs, review comments, blame, compare, and revert.
 

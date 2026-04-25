@@ -15,6 +15,7 @@ from .github_integration import (
     github_doctor,
     github_has_failures,
     github_pr_create,
+    github_pr_sync,
     pr_body,
     render_github_doctor,
 )
@@ -153,6 +154,11 @@ def build_parser() -> argparse.ArgumentParser:
     github_pr_create_parser.add_argument("--draft", action="store_true")
     github_pr_create_parser.add_argument("--dry-run", action="store_true")
     add_root(github_pr_create_parser)
+
+    github_pr_sync_parser = subparsers.add_parser("github-pr-sync", help="Update an existing GitHub PR body from run evidence")
+    github_pr_sync_parser.add_argument("run_id")
+    github_pr_sync_parser.add_argument("--dry-run", action="store_true")
+    add_root(github_pr_sync_parser)
 
     auto_next_parser = subparsers.add_parser("auto-next", help="Run doctor, start next task, dispatch, optionally run Codex and watch")
     auto_next_parser.add_argument("--agent-id", default="worker-1")
@@ -314,6 +320,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "github-pr-create":
             run_dir = get_run(paths, args.run_id)
             returncode, output = github_pr_create(paths.root, run_dir, args.draft, args.dry_run)
+            print(output)
+            return returncode
+        if args.command == "github-pr-sync":
+            run_dir = get_run(paths, args.run_id)
+            returncode, output = github_pr_sync(paths.root, run_dir, args.dry_run)
             print(output)
             return returncode
         if args.command == "auto-next":

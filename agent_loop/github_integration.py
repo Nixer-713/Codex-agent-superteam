@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import git_utils
@@ -212,9 +213,11 @@ def github_pr_create(root: Path, run_dir: Path, draft: bool, dry_run: bool) -> t
         raise RuntimeError("current branch is unknown")
     if branch == default or branch in {"main", "master"}:
         raise RuntimeError("github-pr-create refuses to run on the default branch")
-    ahead = git_utils.git(root, "rev-list", "--count", f"main..{branch}")
-    if ahead.returncode == 0 and ahead.stdout.strip() == "0":
-        raise RuntimeError("no commits ahead of main; run accept --commit or commit your changes before creating a PR")
+    ahead = git_utils.git(root, "rev-list", "--count", f"{default}..{branch}")
+    if ahead.returncode != 0:
+        raise RuntimeError(f"could not compare {branch} against {default}: {ahead.stderr.strip()}")
+    if ahead.stdout.strip() == "0":
+        raise RuntimeError(f"no commits ahead of {default}; run accept --commit or commit your changes before creating a PR")
     title = run_task_id(run_dir)
     push_cmd = ["git", "push", "-u", "origin", branch]
     pr_cmd = ["gh", "pr", "create", "--title", title, "--body-file", str(body_path)]
@@ -226,6 +229,23 @@ def github_pr_create(root: Path, run_dir: Path, draft: bool, dry_run: bool) -> t
     if push.returncode != 0:
         return push.returncode, push.stderr
     pr = run_command(root, pr_cmd)
+    return pr.returncode, pr.stdout if pr.returncode == 0 else pr.stderr
+
+
+def github_pr_sync(root: Path, run_dir: Path, dry_run: bool) -> tuple[int, str]:
+    body_path = pr_body(root, run_dir)
+    pr_cmd = ["gh", "pr", "edit", "--body-file", str(body_path)]
+    if dry_run:
+        return 0, " ".join(pr_cmd)
+    pr = run_command(root, pr_cmd)
+    if pr.returncode == 0:
+        (run_dir / "github-pr-sync.yaml").write_text(
+            "status: ok\n"
+            f"synced_at: {datetime.now(timezone.utc).isoformat()}\n"
+            f"body_file: {body_path.name}\n"
+            f"command: {' '.join(pr_cmd)}\n",
+            encoding="utf-8",
+        )
     return pr.returncode, pr.stdout if pr.returncode == 0 else pr.stderr
 
 

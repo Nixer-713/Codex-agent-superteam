@@ -779,6 +779,31 @@ def test_github_pr_create_dry_run_outputs_commands_on_feature_branch(tmp_path):
     assert "--draft" in result.stdout
 
 
+def test_github_pr_create_uses_origin_default_branch_for_ahead_check(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    init_git_repo(root)
+    git(root, "branch", "-m", "trunk")
+    git(root, "checkout", "-b", "codex/github-trunk")
+    git(root, "remote", "add", "origin", str(root))
+    git(root, "update-ref", "refs/remotes/origin/trunk", "trunk")
+    git(root, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/trunk")
+    assert run_cli("init", "--root", str(root)).returncode == 0
+    assert run_cli("new-task", "GitHub trunk", "--root", str(root), "--allowed", "docs/**").returncode == 0
+    started = run_cli("run-next", "--root", str(root))
+    run_id = started.stdout.strip().split()[-1]
+    (root / "docs").mkdir()
+    (root / "docs" / "github-trunk.md").write_text("# GitHub Trunk\n", encoding="utf-8")
+    assert run_cli("complete", run_id, "--root", str(root), "--agent-id", "worker-1").returncode == 0
+    assert run_cli("watch", run_id, "--root", str(root), "--agent-id", "worker-1", "--timeout", "0").returncode == 0
+    assert run_cli("accept", run_id, "--root", str(root), "--commit").returncode == 0
+
+    result = run_cli("github-pr-create", run_id, "--root", str(root), "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    assert "gh pr create" in result.stdout
+
+
 def test_github_pr_create_dry_run_requires_branch_commit(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
@@ -798,3 +823,43 @@ def test_github_pr_create_dry_run_requires_branch_commit(tmp_path):
 
     assert result.returncode == 1
     assert "no commits ahead" in result.stderr
+
+
+def test_github_pr_sync_dry_run_outputs_edit_command(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    init_git_repo(root)
+    git(root, "checkout", "-b", "codex/github-sync")
+    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    assert run_cli("init", "--root", str(root)).returncode == 0
+    assert run_cli("new-task", "GitHub sync", "--root", str(root), "--allowed", "docs/**").returncode == 0
+    started = run_cli("run-next", "--root", str(root))
+    run_id = started.stdout.strip().split()[-1]
+    (root / "docs").mkdir()
+    (root / "docs" / "github-sync.md").write_text("# GitHub Sync\n", encoding="utf-8")
+    assert run_cli("complete", run_id, "--root", str(root), "--agent-id", "worker-1").returncode == 0
+    assert run_cli("watch", run_id, "--root", str(root), "--agent-id", "worker-1", "--timeout", "0").returncode == 0
+
+    result = run_cli("github-pr-sync", run_id, "--root", str(root), "--dry-run")
+
+    assert result.returncode == 0, result.stderr
+    assert "gh pr edit" in result.stdout
+    assert "--body-file" in result.stdout
+    assert "github-pr-body.md" in result.stdout
+
+
+def test_github_pr_sync_requires_evidence(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    init_git_repo(root)
+    git(root, "checkout", "-b", "codex/github-sync-missing")
+    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    assert run_cli("init", "--root", str(root)).returncode == 0
+    assert run_cli("new-task", "GitHub sync missing", "--root", str(root), "--allowed", "docs/**").returncode == 0
+    started = run_cli("run-next", "--root", str(root))
+    run_id = started.stdout.strip().split()[-1]
+
+    result = run_cli("github-pr-sync", run_id, "--root", str(root), "--dry-run")
+
+    assert result.returncode == 1
+    assert "missing PR evidence" in result.stderr
