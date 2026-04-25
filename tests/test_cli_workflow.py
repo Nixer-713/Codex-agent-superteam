@@ -2,7 +2,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from agent_loop.github_integration import evaluate_pr_gate, summarize_ci_runs
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+REMOTE_URL = "https://github.com/example/codex-agent-superteam.git"
 
 
 def run_cli(*args, cwd=None):
@@ -739,7 +742,7 @@ def test_github_pr_create_dry_run_blocks_default_branch(tmp_path):
     root = tmp_path / "repo"
     root.mkdir()
     init_git_repo(root)
-    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    git(root, "remote", "add", "origin", REMOTE_URL)
     assert run_cli("init", "--root", str(root)).returncode == 0
     assert run_cli("new-task", "GitHub dry run", "--root", str(root), "--allowed", "docs/**").returncode == 0
     started = run_cli("run-next", "--root", str(root))
@@ -760,7 +763,7 @@ def test_github_pr_create_dry_run_outputs_commands_on_feature_branch(tmp_path):
     root.mkdir()
     init_git_repo(root)
     git(root, "checkout", "-b", "codex/github-smoke")
-    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    git(root, "remote", "add", "origin", REMOTE_URL)
     assert run_cli("init", "--root", str(root)).returncode == 0
     assert run_cli("new-task", "GitHub dry run", "--root", str(root), "--allowed", "docs/**").returncode == 0
     started = run_cli("run-next", "--root", str(root))
@@ -810,7 +813,7 @@ def test_github_pr_create_falls_back_to_existing_local_base_branch(tmp_path):
     init_git_repo(root)
     git(root, "branch", "-m", "master")
     git(root, "checkout", "-b", "codex/github-master")
-    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    git(root, "remote", "add", "origin", REMOTE_URL)
     assert run_cli("init", "--root", str(root)).returncode == 0
     assert run_cli("new-task", "GitHub master", "--root", str(root), "--allowed", "docs/**").returncode == 0
     started = run_cli("run-next", "--root", str(root))
@@ -832,7 +835,7 @@ def test_github_pr_create_dry_run_requires_branch_commit(tmp_path):
     root.mkdir()
     init_git_repo(root)
     git(root, "checkout", "-b", "codex/no-commit")
-    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    git(root, "remote", "add", "origin", REMOTE_URL)
     assert run_cli("init", "--root", str(root)).returncode == 0
     assert run_cli("new-task", "GitHub no commit", "--root", str(root), "--allowed", "docs/**").returncode == 0
     started = run_cli("run-next", "--root", str(root))
@@ -853,7 +856,7 @@ def test_github_pr_sync_dry_run_outputs_edit_command(tmp_path):
     root.mkdir()
     init_git_repo(root)
     git(root, "checkout", "-b", "codex/github-sync")
-    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    git(root, "remote", "add", "origin", REMOTE_URL)
     assert run_cli("init", "--root", str(root)).returncode == 0
     assert run_cli("new-task", "GitHub sync", "--root", str(root), "--allowed", "docs/**").returncode == 0
     started = run_cli("run-next", "--root", str(root))
@@ -876,7 +879,7 @@ def test_github_pr_sync_requires_evidence(tmp_path):
     root.mkdir()
     init_git_repo(root)
     git(root, "checkout", "-b", "codex/github-sync-missing")
-    git(root, "remote", "add", "origin", "https://github.com/Nixer-713/Codex-agent-superteam.git")
+    git(root, "remote", "add", "origin", REMOTE_URL)
     assert run_cli("init", "--root", str(root)).returncode == 0
     assert run_cli("new-task", "GitHub sync missing", "--root", str(root), "--allowed", "docs/**").returncode == 0
     started = run_cli("run-next", "--root", str(root))
@@ -886,3 +889,70 @@ def test_github_pr_sync_requires_evidence(tmp_path):
 
     assert result.returncode == 1
     assert "missing PR evidence" in result.stderr
+
+
+def test_evaluate_pr_gate_accepts_matching_files_and_successful_checks():
+    result = evaluate_pr_gate(
+        expected_files=["README.md", "agent_loop/cli.py"],
+        pr_data={
+            "url": "https://github.com/example/repo/pull/1",
+            "state": "OPEN",
+            "isDraft": False,
+            "headRefName": "codex/example",
+            "baseRefName": "main",
+            "files": [{"path": "README.md"}, {"path": "agent_loop/cli.py"}],
+            "statusCheckRollup": [{"name": "pytest", "status": "COMPLETED", "conclusion": "SUCCESS", "detailsUrl": "https://example.test/run"}],
+        },
+    )
+
+    assert result["status"] == "ok"
+    assert result["files_match"] is True
+    assert result["checks_passed"] is True
+
+
+def test_evaluate_pr_gate_blocks_draft_extra_files_and_failed_checks():
+    result = evaluate_pr_gate(
+        expected_files=["README.md"],
+        pr_data={
+            "url": "https://github.com/example/repo/pull/1",
+            "state": "OPEN",
+            "isDraft": True,
+            "headRefName": "codex/example",
+            "baseRefName": "main",
+            "files": [{"path": "README.md"}, {"path": "secret.txt"}],
+            "statusCheckRollup": [{"name": "pytest", "status": "COMPLETED", "conclusion": "FAILURE", "detailsUrl": "https://example.test/run"}],
+        },
+    )
+
+    assert result["status"] == "fail"
+    assert result["draft"] is True
+    assert result["extra_pr_files"] == ["secret.txt"]
+    assert result["failed_checks"] == ["pytest"]
+
+
+def test_summarize_ci_runs_waits_for_latest_head_sha_success():
+    result = summarize_ci_runs(
+        head_sha="abc123",
+        runs=[
+            {"databaseId": 1, "headSha": "old", "status": "completed", "conclusion": "failure", "url": "https://example.test/old"},
+            {"databaseId": 2, "headSha": "abc123", "status": "completed", "conclusion": "success", "url": "https://example.test/new"},
+        ],
+    )
+
+    assert result["status"] == "success"
+    assert result["run_ids"] == [2]
+
+
+def test_summarize_ci_runs_reports_in_progress_and_failure():
+    in_progress = summarize_ci_runs(
+        head_sha="abc123",
+        runs=[{"databaseId": 2, "headSha": "abc123", "status": "in_progress", "conclusion": "", "url": "https://example.test/new"}],
+    )
+    failed = summarize_ci_runs(
+        head_sha="abc123",
+        runs=[{"databaseId": 3, "headSha": "abc123", "status": "completed", "conclusion": "failure", "url": "https://example.test/fail"}],
+    )
+
+    assert in_progress["status"] == "in_progress"
+    assert failed["status"] == "failure"
+    assert failed["failed_run_ids"] == [3]

@@ -16,7 +16,7 @@ Codex Agent Loop 是一个基于 Codex、Git、任务文件、运行记录、审
 
 ### User-Provided Facts
 
-- 目标目录是 `/Users/nixer/codex储备`。
+- 目标目录由使用者在本地选择，不应写入公开模板。
 - 需要创建一个文件夹存放基于 Codex 的自动化任务运行框架。
 - 需要参考 Claude Agent Team 官方文档和 Datawhale 第三方教程。
 - 必须考虑上下文长度爆炸、token 消耗过高、子代理完成标志、主 agent 不打断子 agent、快速定位问题、减小代码侵入性和 review 循环。

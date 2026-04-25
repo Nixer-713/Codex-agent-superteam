@@ -14,6 +14,8 @@ from .doctor import has_failures, render_report, run_doctor
 from .github_integration import (
     github_doctor,
     github_has_failures,
+    github_ci_watch,
+    github_pr_check,
     github_pr_create,
     github_pr_sync,
     pr_body,
@@ -159,6 +161,15 @@ def build_parser() -> argparse.ArgumentParser:
     github_pr_sync_parser.add_argument("run_id")
     github_pr_sync_parser.add_argument("--dry-run", action="store_true")
     add_root(github_pr_sync_parser)
+
+    github_ci_watch_parser = subparsers.add_parser("github-ci-watch", help="Wait for GitHub Actions checks on the current commit")
+    github_ci_watch_parser.add_argument("--timeout", type=float, default=600.0)
+    github_ci_watch_parser.add_argument("--poll", type=float, default=10.0)
+    add_root(github_ci_watch_parser)
+
+    github_pr_check_parser = subparsers.add_parser("github-pr-check", help="Verify GitHub PR files and checks against local run evidence")
+    github_pr_check_parser.add_argument("run_id")
+    add_root(github_pr_check_parser)
 
     auto_next_parser = subparsers.add_parser("auto-next", help="Run doctor, start next task, dispatch, optionally run Codex and watch")
     auto_next_parser.add_argument("--agent-id", default="worker-1")
@@ -326,6 +337,15 @@ def main(argv: list[str] | None = None) -> int:
             run_dir = get_run(paths, args.run_id)
             returncode, output = github_pr_sync(paths.root, run_dir, args.dry_run)
             print(output)
+            return returncode
+        if args.command == "github-ci-watch":
+            returncode, output = github_ci_watch(paths.root, args.timeout, args.poll)
+            print(output, end="")
+            return returncode
+        if args.command == "github-pr-check":
+            run_dir = get_run(paths, args.run_id)
+            returncode, output = github_pr_check(paths.root, run_dir)
+            print(output, end="")
             return returncode
         if args.command == "auto-next":
             try:
