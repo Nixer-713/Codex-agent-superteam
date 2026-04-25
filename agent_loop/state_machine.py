@@ -16,8 +16,13 @@ SAFE_EVIDENCE = ["changed-files.txt", "diff-stat.txt", "diff.patch", "scope-chec
 def run_state(root: Path, run_dir: Path) -> dict:
     missing = [name for name in SAFE_EVIDENCE if not (run_dir / name).exists()]
     status_text = (run_dir / "status.yaml").read_text(encoding="utf-8") if (run_dir / "status.yaml").exists() else ""
+    worker = read_worker_state(run_dir)
     if (run_dir / "mailbox").exists() and list((run_dir / "mailbox").glob("*.blocked.md")):
         phase = "blocked"
+    elif worker.get("status") == "failed":
+        phase = "blocked"
+    elif worker.get("status") == "running":
+        phase = "dispatched"
     elif "status: accepted" in status_text:
         phase = "accepted"
     elif (run_dir / "github-pr-check.yaml").exists() and "status: ok" in (run_dir / "github-pr-check.yaml").read_text(encoding="utf-8"):
@@ -37,9 +42,24 @@ def run_state(root: Path, run_dir: Path) -> dict:
     return {
         "run_id": run_dir.name,
         "phase": phase,
+        "worker_status": worker.get("status", ""),
+        "worker_exit_code": worker.get("exit_code", ""),
+        "worker_failure": worker.get("failure", ""),
         "missing_evidence": missing,
         "next_command": next_command(run_dir.name, missing, phase),
     }
+
+
+def read_worker_state(run_dir: Path) -> dict:
+    evidence = run_dir / "orchestrate-worker.yaml"
+    if not evidence.exists():
+        return {}
+    data: dict[str, str] = {}
+    for line in evidence.read_text(encoding="utf-8").splitlines():
+        if ":" in line and not line.startswith("  "):
+            key, value = line.split(":", 1)
+            data[key.strip()] = value.strip()
+    return data
 
 
 def next_command(run_id: str, missing: list[str], phase: str) -> str:

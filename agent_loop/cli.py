@@ -230,6 +230,7 @@ def build_parser() -> argparse.ArgumentParser:
     orchestrate_parser.add_argument("--run-codex", action="store_true")
     orchestrate_parser.add_argument("--watch", action="store_true")
     orchestrate_parser.add_argument("--timeout", type=float, default=1800.0)
+    orchestrate_parser.add_argument("--run-command", default=None, help="Testing/advanced worker command template to run instead of codex")
     add_root(orchestrate_parser)
 
     auto_next_parser = subparsers.add_parser("auto-next", help="Run doctor, start next task, dispatch, optionally run Codex and watch")
@@ -456,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"created {output}")
             return 0
         if args.command == "orchestrate":
-            for message in orchestrate(paths, args.parallel, args.worktree, args.run_codex, args.watch, args.timeout):
+            for message in orchestrate(paths, args.parallel, args.worktree, args.run_codex, args.watch, args.timeout, args.run_command):
                 print(message)
             return 0
         if args.command == "auto-next":
