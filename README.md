@@ -173,6 +173,21 @@ python3 -m pytest -q
 ```
 
 
+
+## v0.3 Multi-Agent Orchestration
+
+Use `orchestrate` to start several scoped workers at once while keeping human gates intact:
+
+```bash
+agent-loop orchestrate \
+  --root "$PROJECT_ROOT" \
+  --parallel 3 \
+  --worktree \
+  --watch
+```
+
+The orchestrator assigns unique worker ids, creates per-run evidence, optionally creates Git worktrees, and writes `.agent-loop/orchestrate-result.yaml` plus `.agent-loop/orchestrate-report.md`. It does not run `accept`, `worktree-apply`, or merge GitHub PRs. If task ownership paths overlap, the safer default is to block the conflicting task and record it in the orchestrate report.
+
 ## Maturity Roadmap
 
 The current template includes the local task loop, worktree gates, GitHub PR/CI gates, resumable state inspection, privacy scanning, release checks, and final reports. See `docs/roadmap.md` for the maturity roadmap and remaining automation work.
