@@ -1,124 +1,171 @@
-# Codex Agent Loop
+# Codex Agent Superteam
 
-一个基于 Codex、Git、任务队列、审阅门禁和项目记忆层的自动化任务循环框架草案。
+A local-first automation framework for running Codex as a bounded, reviewable, Git-backed agent team.
 
-目标不是简单复制 Claude Agent Team，而是把它的有效机制映射到 Codex/终端/GitHub 工作流：
+Codex Agent Superteam turns ad-hoc coding sessions into an auditable loop:
 
-- shared task list → `tasks/`、GitHub Issues、PR checklist
-- mailbox / notification → `agent-runs/*/mailbox/`、summary 文件、主 agent 轮询
-- file locking → `locks/`、branch/worktree ownership、scope guard
-- token 节约 → manifest、摘要、分层上下文包、按需读取 diff
-- review loop → self-review、peer-review、CI、human gate
-- idle / done signal → `DONE.md`、`status.yaml`、exit code、PR comment
+```text
+Task → bounded worker prompt → Codex execution → mailbox signal → diff capture → scope check → review → GitHub PR → CI → human merge decision
+```
 
-核心文档：
+It is designed for large projects where you need automation, but still want clear evidence before accepting code.
 
-- `docs/system-architecture.md`：完整系统构造
-- `docs/runtime-protocol.md`：每轮任务运行协议
-- `docs/reference-insights.md`：Karpathy/Superpowers/Oh My Codex 借鉴点
-- `protocols/execution-protocol.md`：Codex worker/reviewer 底层执行协议
-- `protocols/karpathy-coding-guidelines.md`：karpathy提示词执行准则
-- `templates/`：任务、子代理、审阅与运行记录模板
+## What It Provides
 
-当前状态：这是第一版架构设计，不包含可执行 runner。下一步可以基于这些模板实现本地 CLI 或 GitHub Actions 版。
+- **Task queue**: file-based pending/active/done tasks with allowed and forbidden path scopes.
+- **Bounded workers**: generated Codex worker prompts with explicit ownership, stop conditions, and completion files.
+- **Local review gates**: Git diff capture, scope checks, risk reports, validation records, and review artifacts.
+- **Worktree isolation**: run multiple workers in separate Git worktrees before applying changes back.
+- **GitHub audit layer**: draft PR creation, PR body evidence sync, CI watching, and PR acceptance checks.
+- **Human final control**: the system prepares evidence; it does not auto-merge PRs.
 
-## Local CLI MVP
+## Quick Start
 
-Run commands from this directory with `python3 -m agent_loop.cli`, or install the package later to use `agent-loop`.
-
-### Basic Flow
+Clone this repository, then run the CLI against any Git project you want Codex to work on:
 
 ```bash
-PROJECT_ROOT="/Users/nixer/codex储备/测试"
+git clone https://github.com/<owner>/codex-agent-superteam.git
+cd codex-agent-superteam
 
+export PROJECT_ROOT="/absolute/path/to/your/project"
 python3 -m agent_loop.cli init --root "$PROJECT_ROOT"
 python3 -m agent_loop.cli doctor --root "$PROJECT_ROOT"
-python3 -m agent_loop.cli new-task "Add login validation" --root "$PROJECT_ROOT" --allowed 'src/auth/**' --forbidden 'infra/**' --validation 'python3 -m pytest'
-python3 -m agent_loop.cli run-next --root "$PROJECT_ROOT"
-python3 -m agent_loop.cli dispatch <run-id> --root "$PROJECT_ROOT" --agent-id worker-auth --codex-command
-python3 -m agent_loop.cli complete <run-id> --root "$PROJECT_ROOT" --agent-id worker-auth --result success --message "Worker finished the assigned task."
-python3 -m agent_loop.cli watch <run-id> --root "$PROJECT_ROOT" --agent-id worker-auth --timeout 300
-python3 -m agent_loop.cli accept <run-id> --root "$PROJECT_ROOT"
 ```
 
-`/path/to/project` 这类字符串只是文档占位符，不要原样执行；请替换成真实项目目录。
-
-### Automation Boundary
-
-The MVP automates task/run artifact creation, bounded worker prompt generation, worker completion signals, Git diff capture, scope checks, review file generation, and task state transitions. `advance` moves a completed worker run to `review_ready`; human approval is still required at the final `accept` boundary, which keeps uncertain or high-risk decisions outside automatic execution.
-
-`dispatch --codex-command` writes a runnable `codex exec` shell command beside the worker prompt. It is intentionally generated but not executed by default, so you can inspect the command before allowing a worker to modify code.
-
-`run-codex --dry-run` prints the exact `codex exec` command without executing it. Without `--dry-run`, it runs `codex exec` with `workspace-write` sandboxing and writes logs into the run directory. It still does not auto-accept or commit; use `watch`, review, then `accept`.
-
-`watch` waits for `mailbox/<agent-id>.done.md` or `mailbox/<agent-id>.blocked.md`. A done signal automatically runs the review-prep pipeline; a blocked signal stops and returns control to the human operator.
-
-For parallel local work, create one Git worktree per worker:
+Create and run a bounded task:
 
 ```bash
-python3 -m agent_loop.cli worktree-start <run-id> --root "$PROJECT_ROOT" --agent-id worker-auth --path ../project-worker-auth
+python3 -m agent_loop.cli new-task "Add login validation" \
+  --root "$PROJECT_ROOT" \
+  --allowed 'src/auth/**' \
+  --forbidden 'infra/**' \
+  --validation 'python3 -m pytest'
+
+RUN_ID=$(python3 -m agent_loop.cli run-next --root "$PROJECT_ROOT" | awk '{print $2}')
+python3 -m agent_loop.cli dispatch "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-auth --codex-command
+python3 -m agent_loop.cli run-codex "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-auth --dry-run
+python3 -m agent_loop.cli watch "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-auth --timeout 300
 ```
 
-This creates a `codex/<task-id>-<agent-id>` branch and records the assignment in the run's `worktrees.yaml`.
-
-Worktree runs require an evidence chain before merging back:
+Review and accept only after evidence is ready:
 
 ```bash
-python3 -m agent_loop.cli worktree-collect <run-id> --root "$PROJECT_ROOT" --agent-id worker-docs
-python3 -m agent_loop.cli merge-preflight <run-id> --root "$PROJECT_ROOT" --agent-id worker-docs
-python3 -m agent_loop.cli worktree-preview <run-id> --root "$PROJECT_ROOT" --agent-id worker-docs
-python3 -m agent_loop.cli review-accept <run-id> --root "$PROJECT_ROOT" --agent-id worker-docs
-python3 -m agent_loop.cli worktree-apply <run-id> --root "$PROJECT_ROOT" --agent-id worker-docs
-python3 -m agent_loop.cli accept <run-id> --root "$PROJECT_ROOT" --commit
+python3 -m agent_loop.cli status --root "$PROJECT_ROOT"
+python3 -m agent_loop.cli accept "$RUN_ID" --root "$PROJECT_ROOT" --commit
 ```
 
-`accept --commit` refuses worktree runs until `worktree-apply` produces `merge-result.yaml` with `match: true` and marks the run `merge_ready`.
+## Safe Automation Boundary
 
-### Auto Next
+The framework automates mechanical work:
 
-Use `auto-next` to run the safe automation chain up to the human review boundary:
+- task and run artifact creation
+- bounded Codex prompt generation
+- worker done/blocked detection
+- Git diff capture
+- scope checking
+- risk and validation evidence
+- review file generation
+- GitHub PR body generation and sync
+- GitHub Actions waiting and PR check evidence
+
+It keeps uncertain decisions human-controlled:
+
+- scope expansion
+- high-risk patch acceptance
+- final commit acceptance
+- PR merge decisions
+- failed validation overrides
+
+## Worktree Merge Gate
+
+For parallel workers, use one worktree per agent:
 
 ```bash
-python3 -m agent_loop.cli auto-next --root "$PROJECT_ROOT" --agent-id worker-1 --codex-command
+python3 -m agent_loop.cli worktree-start "$RUN_ID" \
+  --root "$PROJECT_ROOT" \
+  --agent-id worker-docs \
+  --path ../project-worker-docs
 ```
 
-Optional flags:
+A worktree run must pass the full merge evidence chain before `accept --commit`:
 
-- `--run-codex`: execute `codex exec` for the generated worker prompt.
-- `--dry-run`: preview the `codex exec` command without running it.
-- `--watch`: wait for done/blocked and automatically prepare review artifacts.
-- `--watch-timeout 300`: cap waiting time in seconds.
+```bash
+python3 -m agent_loop.cli worktree-collect "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-docs
+python3 -m agent_loop.cli merge-preflight "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-docs
+python3 -m agent_loop.cli worktree-preview "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-docs
+python3 -m agent_loop.cli review-accept "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-docs
+python3 -m agent_loop.cli worktree-apply "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-docs
+python3 -m agent_loop.cli accept "$RUN_ID" --root "$PROJECT_ROOT" --commit
+```
 
-`auto-next` never runs `accept` or commits. It stops at `review_ready` so a human can inspect the diff and decide.
+Required evidence includes:
 
-## GitHub CLI Workflow
+```text
+.agent-runs/<run-id>/
+  worktrees.yaml
+  worktree-collect.yaml
+  merge-preflight.yaml
+  changed-files.txt
+  diff-stat.txt
+  diff.patch
+  scope-check.yaml
+  risk.yaml
+  validation.yaml
+  review.md
+  review-decision.yaml
+  post-apply-diff.patch
+  merge-result.yaml
+  mailbox/<agent-id>.done.md
+```
 
-Use GitHub as the remote audit and review layer after local evidence is ready:
+## GitHub Workflow
+
+After local evidence is ready, use GitHub as the remote review and debugging layer:
 
 ```bash
 python3 -m agent_loop.cli github-doctor --root "$PROJECT_ROOT"
-python3 -m agent_loop.cli github-pr-body <run-id> --root "$PROJECT_ROOT"
-python3 -m agent_loop.cli github-pr-create <run-id> --root "$PROJECT_ROOT" --draft
+python3 -m agent_loop.cli github-pr-body "$RUN_ID" --root "$PROJECT_ROOT"
+python3 -m agent_loop.cli github-pr-create "$RUN_ID" --root "$PROJECT_ROOT" --draft
+python3 -m agent_loop.cli github-pr-sync "$RUN_ID" --root "$PROJECT_ROOT"
+python3 -m agent_loop.cli github-ci-watch --root "$PROJECT_ROOT" --timeout 600 --poll 10
+python3 -m agent_loop.cli github-pr-check "$RUN_ID" --root "$PROJECT_ROOT"
 ```
 
-`github-pr-body` writes `github-pr-body.md` into the run directory with task, changed files, scope, risk, validation, review, and diff preview sections. `github-pr-create` pushes the current feature branch and creates a draft PR; it refuses to run from `main`/`master` and does not merge.
+### GitHub Acceptance Evidence
 
-GitHub then provides the remote debugging trail: PR Files changed, commit diffs, CI logs, review comments, blame, compare, and revert.
+`github-pr-check` writes `github-pr-check.yaml` and verifies:
 
-For isolated parallel workers, combine `auto-next` with `--worktree`:
+- the PR is open
+- the PR is not draft
+- PR files match local `changed-files.txt`
+- GitHub status checks are complete and successful
+
+`github-ci-watch` writes `.agent-loop/github-ci-watch.yaml` with the current commit SHA, run IDs, conclusions, and run URLs.
+
+The system still does **not** merge PRs automatically. GitHub remains the final human review surface: Files changed, commits, CI logs, review comments, blame, compare, and revert.
+
+## Repository CI
+
+This template includes GitHub Actions at `.github/workflows/test.yml`.
+
+The workflow runs on pull requests and on pushes to `main` or `codex/**` branches:
 
 ```bash
-python3 -m agent_loop.cli auto-next --root "$PROJECT_ROOT" --agent-id worker-docs --worktree --worktree-path ../project-worker-docs --codex-command
+python3 -m pytest -q
 ```
 
-The run artifacts stay in the main project, while the generated `codex exec` command uses the worker worktree as its `--cd` directory.
+## Protocols
 
-### Doctor
+- `protocols/execution-protocol.md`: baseline worker/reviewer protocol.
+- `protocols/karpathy-coding-guidelines.md`: caution-first coding guidelines.
+- `docs/system-architecture.md`: system design and operating model.
+- `docs/runtime-protocol.md`: task runtime loop.
+- `docs/reference-insights.md`: design influences and tradeoffs.
 
-Use `doctor` before automation or when the loop feels stuck:
+## Privacy Notes
 
-```bash
-python3 -m agent_loop.cli doctor --root "$PROJECT_ROOT"
-```
+This repository is intended to be used as a reusable template. Avoid committing local run artifacts, machine-specific paths, private project names, tokens, or generated worker outputs. The default `.gitignore` excludes `.agent-runs/`, `.tasks/`, `.locks/`, `.agent-loop/`, caches, and bytecode.
 
-It reports `[OK]`, `[WARN]`, and `[FAIL]` findings for Git setup, workspace directories, task counts, run artifacts, review-ready runs, and recorded scope violations. A `[FAIL]` exits non-zero and should block further automation until fixed.
+## Status
+
+This is an early but executable local framework. The safest current use is supervised automation: let Codex prepare bounded changes and evidence, then let a human approve commits and GitHub merges.
