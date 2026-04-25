@@ -170,8 +170,8 @@ def test_orchestrate_starts_multiple_pending_tasks_without_accepting(tmp_path):
     root.mkdir()
     init_git_repo(root)
     assert run_cli("init", "--root", str(root)).returncode == 0
-    for title in ["Docs A", "Docs B", "Docs C"]:
-        assert run_cli("new-task", title, "--root", str(root), "--allowed", "docs/**").returncode == 0
+    for title, allowed in [("Docs A", "docs/a/**"), ("Docs B", "docs/b/**"), ("Docs C", "docs/c/**")]:
+        assert run_cli("new-task", title, "--root", str(root), "--allowed", allowed).returncode == 0
 
     result = run_cli("orchestrate", "--root", str(root), "--parallel", "2")
 
@@ -181,7 +181,9 @@ def test_orchestrate_starts_multiple_pending_tasks_without_accepting(tmp_path):
     assert len(list((root / ".tasks" / "active").glob("*.md"))) == 2
     assert len(list((root / ".tasks" / "done").glob("*.md"))) == 0
     for run_dir in runs:
-        assert (run_dir / "worker-1.prompt.md").is_file()
+        evidence = (run_dir / "orchestrate-worker.yaml").read_text(encoding="utf-8")
+        agent_id = next(line.split(":", 1)[1].strip() for line in evidence.splitlines() if line.startswith("agent_id:"))
+        assert (run_dir / f"{agent_id}.prompt.md").is_file()
 
 
 def test_config_risk_threshold_changes_resume_risk(tmp_path):
