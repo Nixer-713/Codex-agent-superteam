@@ -1,0 +1,12 @@
+run_id: run-YYYYMMDD-HHMMSS-task-id
+task_id: task-000
+status: created
+head_before: null
+agents: {}
+locks: {}
+changed_files: []
+validation: []
+review:
+  status: not_started
+  decision: null
+attempts: 0

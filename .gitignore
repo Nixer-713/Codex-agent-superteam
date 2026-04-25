@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.agent-loop/
+.agent-runs/
+.tasks/
+.locks/
+.DS_Store

@@ -1,0 +1,6 @@
+current_stage: project-framer
+status: draft_created
+next_recommended_skill: problem-validator
+updated_at: 2026-04-25
+notes:
+  - Initial architecture framing created for Codex Agent Loop.

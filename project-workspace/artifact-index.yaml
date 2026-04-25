@@ -1,0 +1,7 @@
+artifacts:
+  - id: project-brief-v1
+    type: project_brief
+    path: project-workspace/02_artifacts/project-brief/project-brief-v1.md
+    status: draft
+    owner_skill: project-framer
+    created_at: 2026-04-25
