@@ -10,4 +10,5 @@ def test_github_actions_ci_runs_pytest_on_push_and_pr():
     assert "push:" in text
     assert "actions/checkout" in text
     assert "actions/setup-python" in text
+    assert "python3 -m pip install pytest" in text
     assert "python3 -m pytest -q" in text
