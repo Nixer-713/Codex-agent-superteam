@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import git_utils
+from .config import load_config
 from .paths import LoopPaths
 
 
@@ -21,6 +22,7 @@ def run_doctor(paths: LoopPaths) -> list[Finding]:
     findings.extend(check_root(paths.root))
     findings.extend(check_git(paths.root))
     findings.extend(check_workspace(paths))
+    findings.extend(check_config(paths))
     findings.extend(check_tasks(paths))
     findings.extend(check_runs(paths))
     return findings
@@ -81,6 +83,19 @@ def check_workspace(paths: LoopPaths) -> list[Finding]:
             )
         ]
     return [Finding("OK", "workspace.directories", "Agent Loop workspace directories exist.")]
+
+
+def check_config(paths: LoopPaths) -> list[Finding]:
+    if not paths.config_file.exists():
+        return []
+    try:
+        config = load_config(paths.root)
+    except Exception as exc:
+        return [Finding("FAIL", "config.parse", f"Config cannot be parsed: {exc}", "Fix .agent-loop/config.yaml.")]
+    risk = config.get("risk", {})
+    if int(risk.get("low_files", 0)) > int(risk.get("medium_files", 0)):
+        return [Finding("FAIL", "config.risk", "low_files cannot exceed medium_files.", "Fix risk thresholds in .agent-loop/config.yaml.")]
+    return [Finding("OK", "config.parse", "Config is readable.")]
 
 
 def check_tasks(paths: LoopPaths) -> list[Finding]:

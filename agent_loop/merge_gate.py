@@ -186,13 +186,18 @@ def copy_allowed_file(worktree: Path, root: Path, file: str) -> None:
     shutil.copyfile(source, target)
 
 
-def write_risk(path: Path, files: list[str], diff: str) -> None:
+def write_risk(path: Path, files: list[str], diff: str, thresholds: dict | None = None) -> None:
+    thresholds = thresholds or {}
+    low_files = int(thresholds.get("low_files", 3))
+    low_lines = int(thresholds.get("low_lines", 150))
+    medium_files = int(thresholds.get("medium_files", 8))
+    medium_lines = int(thresholds.get("medium_lines", 500))
     added = sum(1 for line in diff.splitlines() if line.startswith("+") and not line.startswith("+++"))
     deleted = sum(1 for line in diff.splitlines() if line.startswith("-") and not line.startswith("---"))
     changed = added + deleted
-    if len(files) <= 3 and changed <= 150:
+    if len(files) <= low_files and changed <= low_lines:
         risk = "low"
-    elif len(files) <= 8 and changed <= 500:
+    elif len(files) <= medium_files and changed <= medium_lines:
         risk = "medium"
     else:
         risk = "high"
