@@ -11,7 +11,8 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 | v0.3 multi-agent orchestration | complete | worktree-aware orchestration, path conflict blocking, lifecycle evidence |
 | v0.4 parallel runner | complete | process-based worker launch, stdout/stderr logs, exit codes, duration, richer reports |
 | v0.5 review revise loop | complete | GitHub review comments, revise decisions, attempt prompts, report feedback |
-| v0.6 durable orchestrator | current | persistent orchestration state and safe resume to review boundary |
+| v0.6 durable orchestrator | complete | persistent orchestration state and safe resume to review boundary |
+| v0.7 public template hardening | current | template init, redacted privacy evidence, release readiness reports |
 
 ## Completed Capabilities
 
@@ -60,6 +61,15 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 - `resume-orchestrate --watch` advances done workers to review-ready evidence.
 - Failed and blocked workers are summarized without stopping unrelated workers.
 - `resume-orchestrate` does not run `review-accept`, `worktree-apply`, `accept`, or GitHub merge.
+
+
+## v0.7 Acceptance
+
+- `template-init` creates generic `.agent-loop/config.yaml` and optional GitHub issue/PR templates.
+- Generated templates use `$PROJECT_ROOT` placeholders and no local machine paths.
+- `privacy-scan` redacts token-like matches in evidence.
+- `release-check` writes both `release-check.yaml` and `release-check.md`.
+- Release checks include privacy, package version, version tag, and README presence.
 
 ## Future Work
 

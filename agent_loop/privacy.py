@@ -34,8 +34,9 @@ def privacy_scan(root: Path) -> tuple[int, Path]:
             continue
         for index, line in enumerate(text.splitlines(), start=1):
             for kind, pattern in PATTERNS:
-                if pattern.search(line):
-                    findings.append({"type": kind, "file": file, "line": index})
+                match = pattern.search(line)
+                if match:
+                    findings.append({"type": kind, "file": file, "line": index, "excerpt": redact(line, match.group(0))})
     output = root / ".agent-loop" / "privacy-scan.yaml"
     output.parent.mkdir(parents=True, exist_ok=True)
     lines = ["status: " + ("fail" if findings else "ok"), "findings:"]
@@ -45,7 +46,13 @@ def privacy_scan(root: Path) -> tuple[int, Path]:
             lines.append(f"    file: {finding['file']}")
             if "line" in finding:
                 lines.append(f"    line: {finding['line']}")
+            if "excerpt" in finding:
+                lines.append(f"    excerpt: {finding['excerpt']}")
     else:
         lines.append("  []")
     output.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return (1 if findings else 0), output
+
+
+def redact(line: str, secret: str) -> str:
+    return line.replace(secret, "***")[:160]

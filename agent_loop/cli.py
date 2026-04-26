@@ -39,7 +39,9 @@ from .paths import resolve_paths
 from .privacy import privacy_scan
 from .reporting import create_final_report
 from .review import create_review
+from .release import release_check
 from .review_loop import create_revise_prompt, decision_blocks_accept, write_review_result
+from .template import template_init
 from .runs import create_run, get_run, run_task_id
 from .scope_guard import check_scope, write_scope_report
 from .state_machine import resume_run, run_state
@@ -218,6 +220,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     privacy = subparsers.add_parser("privacy-scan", help="Scan tracked files for private paths, tokens, and local artifacts")
     add_root(privacy)
+
+    template_parser = subparsers.add_parser("template-init", help="Generate reusable project template files")
+    template_parser.add_argument("--github-templates", action="store_true")
+    add_root(template_parser)
 
     release = subparsers.add_parser("release-check", help="Run release readiness checks")
     add_root(release)
@@ -460,14 +466,18 @@ def main(argv: list[str] | None = None) -> int:
             returncode, output = privacy_scan(paths.root)
             print(f"created {output}")
             return returncode
+        if args.command == "template-init":
+            outputs = template_init(paths.root, args.github_templates)
+            for output in outputs:
+                print(f"created {output}")
+            if not outputs:
+                print("template already initialized")
+            return 0
         if args.command == "release-check":
-            privacy_code, privacy_output = privacy_scan(paths.root)
-            output = paths.root / ".agent-loop" / "release-check.yaml"
-            output.parent.mkdir(parents=True, exist_ok=True)
-            status_value = "ok" if privacy_code == 0 else "fail"
-            output.write_text(f"status: {status_value}\nprivacy_scan: {privacy_output.name}\n", encoding="utf-8")
+            returncode, output, report = release_check(paths.root)
             print(f"created {output}")
-            return privacy_code
+            print(f"created {report}")
+            return returncode
         if args.command == "report":
             run_dir = get_run(paths, args.run_id)
             output = create_final_report(run_dir)
