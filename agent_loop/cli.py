@@ -34,7 +34,7 @@ from .merge_gate import (
     preview_worktree,
     review_accept,
 )
-from .orchestrator import orchestrate
+from .orchestrator import orchestrate, orchestrate_state, resume_orchestrate
 from .paths import resolve_paths
 from .privacy import privacy_scan
 from .reporting import create_final_report
@@ -225,6 +225,14 @@ def build_parser() -> argparse.ArgumentParser:
     final_report = subparsers.add_parser("report", help="Generate a final run report")
     final_report.add_argument("run_id")
     add_root(final_report)
+
+    orchestrate_state_parser = subparsers.add_parser("orchestrate-state", help="Show durable orchestrator state")
+    add_root(orchestrate_state_parser)
+
+    resume_orchestrate_parser = subparsers.add_parser("resume-orchestrate", help="Resume safe orchestration evidence handling")
+    resume_orchestrate_parser.add_argument("--watch", action="store_true")
+    resume_orchestrate_parser.add_argument("--timeout", type=float, default=1800.0)
+    add_root(resume_orchestrate_parser)
 
     orchestrate_parser = subparsers.add_parser("orchestrate", help="Start multiple pending tasks up to a safe review boundary")
     orchestrate_parser.add_argument("--parallel", type=int, default=2)
@@ -464,6 +472,15 @@ def main(argv: list[str] | None = None) -> int:
             run_dir = get_run(paths, args.run_id)
             output = create_final_report(run_dir)
             print(f"created {output}")
+            return 0
+        if args.command == "orchestrate-state":
+            output = orchestrate_state(paths)
+            print(f"created {output}")
+            print(output.read_text(encoding="utf-8"), end="")
+            return 0
+        if args.command == "resume-orchestrate":
+            for message in resume_orchestrate(paths, args.watch, args.timeout):
+                print(message)
             return 0
         if args.command == "orchestrate":
             for message in orchestrate(paths, args.parallel, args.worktree, args.run_codex, args.watch, args.timeout, args.run_command):

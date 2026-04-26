@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 import os
 from pathlib import Path
 import shlex
@@ -29,6 +30,7 @@ def orchestrate(
     paths.ensure()
     messages: list[str] = []
     workers: list[dict] = []
+    orchestration_id = existing_orchestration_id(paths) or f"orchestration-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
     blocked_tasks: list[dict] = []
     selected_scopes: list[list[str]] = []
 
@@ -77,6 +79,7 @@ def orchestrate(
         }
         write_worker_evidence(run_dir, worker)
         workers.append(worker)
+        write_orchestrator_state(paths, orchestration_id, parallel, workers)
         messages.extend([f"started {run_dir.name} {agent_id}", f"created {prompt}", f"created {command}"])
         if run_codex or run_command:
             process = start_worker_process(run_dir, command_root, worker, run_command)
@@ -85,9 +88,11 @@ def orchestrate(
             worker["_process"] = process
             worker["_process_started"] = time.time()
             write_worker_evidence(run_dir, worker)
+            write_orchestrator_state(paths, orchestration_id, parallel, workers)
 
     if watch:
         wait_for_running_workers(workers, timeout)
+        write_orchestrator_state(paths, orchestration_id, parallel, workers)
         for worker in workers:
             run_dir = Path(worker["run_dir"])
             agent_id = worker["agent_id"]
@@ -97,6 +102,7 @@ def orchestrate(
                 worker["status"] = "blocked"
                 worker["finished_at"] = worker.get("finished_at") or now()
                 write_worker_evidence(run_dir, worker)
+                write_orchestrator_state(paths, orchestration_id, parallel, workers)
                 continue
             if done.exists():
                 try:
@@ -114,17 +120,69 @@ def orchestrate(
                     worker["finished_at"] = worker.get("finished_at") or now()
                     worker["failure"] = str(exc)
                 write_worker_evidence(run_dir, worker)
+                write_orchestrator_state(paths, orchestration_id, parallel, workers)
                 continue
             if str(worker.get("exit_code", "")) not in {"", "0"}:
                 worker["status"] = "failed"
                 worker["finished_at"] = worker.get("finished_at") or now()
                 worker["failure"] = worker.get("failure") or f"worker exited {worker.get('exit_code')}"
                 write_worker_evidence(run_dir, worker)
+                write_orchestrator_state(paths, orchestration_id, parallel, workers)
 
     write_orchestrate_outputs(paths, workers, blocked_tasks)
+    write_orchestrator_state(paths, orchestration_id, parallel, workers)
     if not messages and not workers and not blocked_tasks:
         messages.append("no pending tasks")
     return messages or ["orchestrate complete"]
+
+
+
+def orchestrate_state(paths: LoopPaths) -> Path:
+    paths.ensure()
+    workers = load_existing_workers(paths)
+    orchestration_id = existing_orchestration_id(paths) or f"orchestration-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
+    write_orchestrator_state(paths, orchestration_id, len(workers), workers)
+    return paths.config_dir / "orchestrator-state.yaml"
+
+
+def resume_orchestrate(paths: LoopPaths, watch: bool = False, timeout: float = 1800.0) -> list[str]:
+    paths.ensure()
+    workers = load_existing_workers(paths)
+    orchestration_id = existing_orchestration_id(paths) or f"orchestration-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
+    if watch:
+        wait_for_running_workers(workers, timeout)
+    for worker in workers:
+        run_dir = Path(worker["run_dir"])
+        agent_id = worker.get("agent_id", "worker-1")
+        done = run_dir / "mailbox" / f"{agent_id}.done.md"
+        blocked = run_dir / "mailbox" / f"{agent_id}.blocked.md"
+        if worker.get("status") == "failed":
+            write_worker_evidence(run_dir, worker)
+            continue
+        if blocked.exists():
+            worker["status"] = "blocked"
+            worker["finished_at"] = worker.get("finished_at") or now()
+            write_worker_evidence(run_dir, worker)
+            continue
+        if done.exists():
+            try:
+                if (run_dir / "worktrees.yaml").exists() and find_worktree_path(run_dir, agent_id):
+                    merge_preflight(paths.root, run_dir, agent_id)
+                    preview_worktree(paths.root, run_dir, agent_id)
+                else:
+                    resume_run(paths.root, run_dir)
+                if not (run_dir / "review.md").exists():
+                    create_review(run_dir)
+                worker["status"] = "review_ready"
+                worker["finished_at"] = worker.get("finished_at") or now()
+            except Exception as exc:
+                worker["status"] = "failed"
+                worker["finished_at"] = worker.get("finished_at") or now()
+                worker["failure"] = str(exc)
+            write_worker_evidence(run_dir, worker)
+    write_orchestrate_outputs(paths, workers, [])
+    write_orchestrator_state(paths, orchestration_id, len(workers), workers)
+    return [f"created {paths.config_dir / 'orchestrator-state.yaml'}", f"created {paths.config_dir / 'orchestrate-report.md'}"]
 
 
 def start_worker_process(run_dir: Path, cwd: Path, worker: dict, command: str | None) -> subprocess.Popen:
@@ -175,6 +233,7 @@ def wait_for_running_workers(workers: list[dict], timeout: float) -> None:
 
 def load_existing_workers(paths: LoopPaths) -> list[dict]:
     workers: list[dict] = []
+    orchestration_id = existing_orchestration_id(paths) or f"orchestration-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6]}"
     if not paths.runs_dir.exists():
         return workers
     for evidence in sorted(paths.runs_dir.glob("*/orchestrate-worker.yaml")):
@@ -271,3 +330,41 @@ def write_yaml(path: Path, data: dict) -> None:
 
 def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def existing_orchestration_id(paths: LoopPaths) -> str:
+    state = paths.config_dir / "orchestrator-state.yaml"
+    if not state.exists():
+        return ""
+    for line in state.read_text(encoding="utf-8").splitlines():
+        if line.startswith("orchestration_id:"):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+def write_orchestrator_state(paths: LoopPaths, orchestration_id: str, parallel: int, workers: list[dict]) -> None:
+    path = paths.config_dir / "orchestrator-state.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"orchestration_id: {orchestration_id}",
+        f"started_at: {workers[0].get('started_at', now()) if workers else now()}",
+        f"parallel: {parallel}",
+        f"last_seen_at: {now()}",
+        "workers:",
+    ]
+    if not workers:
+        lines.append("  []")
+    for worker in workers:
+        lines.append(f"  - agent_id: {worker.get('agent_id', '')}")
+        lines.append(f"    run_id: {worker.get('run_id', '')}")
+        lines.append(f"    task_id: {worker.get('task_id', '')}")
+        lines.append(f"    status: {worker.get('status', 'unknown')}")
+        lines.append(f"    pid: {worker.get('pid', 'unknown') or 'unknown'}")
+        lines.append(f"    exit_code: {worker.get('exit_code', 'unknown') or 'unknown'}")
+        lines.append(f"    worktree_path: {worker.get('worktree_path', '')}")
+        lines.append(f"    branch: {worker.get('branch', '')}")
+        lines.append(f"    stdout_log: {worker.get('stdout_log', '')}")
+        lines.append(f"    stderr_log: {worker.get('stderr_log', '')}")
+        if worker.get("failure"):
+            lines.append(f"    failure: {worker.get('failure')}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
