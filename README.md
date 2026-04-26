@@ -218,6 +218,18 @@ agent-loop github-pr-check "$RUN_ID" --root "$PROJECT_ROOT"
 The framework does **not** auto-merge PRs. GitHub remains the human review surface: Files changed, commits, checks, comments, blame, compare, and revert.
 
 
+
+## Recover Interrupted Orchestration v0.6
+
+The orchestrator writes durable state to `.agent-loop/orchestrator-state.yaml` so interrupted sessions can be inspected and safely resumed:
+
+```bash
+agent-loop orchestrate-state --root "$PROJECT_ROOT"
+agent-loop resume-orchestrate --root "$PROJECT_ROOT" --watch --timeout 1800
+```
+
+`resume-orchestrate` reads worker evidence and mailbox files, advances completed workers to review-ready evidence, summarizes failed or blocked workers, and stops at human gates. It does not run `review-accept`, `worktree-apply`, `accept`, or GitHub merge.
+
 ## Review Feedback Loop v0.5
 
 Import GitHub PR review feedback into the local evidence chain, then generate a bounded revision attempt:

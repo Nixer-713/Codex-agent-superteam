@@ -10,7 +10,8 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 | v0.2 superteam framework | complete | state/resume, config, review loop, GitHub issue/PR helpers, privacy scan, final reports |
 | v0.3 multi-agent orchestration | complete | worktree-aware orchestration, path conflict blocking, lifecycle evidence |
 | v0.4 parallel runner | complete | process-based worker launch, stdout/stderr logs, exit codes, duration, richer reports |
-| v0.5 review revise loop | current | GitHub review comments, revise decisions, attempt prompts, report feedback |
+| v0.5 review revise loop | complete | GitHub review comments, revise decisions, attempt prompts, report feedback |
+| v0.6 durable orchestrator | current | persistent orchestration state and safe resume to review boundary |
 
 ## Completed Capabilities
 
@@ -50,6 +51,15 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 - `revise` writes a new `attempts/<attempt-id>.revise.prompt.md` without overwriting prior attempts.
 - Revision prompts include parent run id, original task scope, changed files, GitHub comment paths, lines, and bodies.
 - `report` includes GitHub review feedback and recommends `revise` while feedback is unresolved.
+
+
+## v0.6 Acceptance
+
+- `orchestrate` writes `.agent-loop/orchestrator-state.yaml` with orchestration id, parallelism, worker ids, run ids, statuses, logs, pids, exit codes, and `last_seen_at`.
+- `orchestrate-state` prints current durable state without crossing any gate.
+- `resume-orchestrate --watch` advances done workers to review-ready evidence.
+- Failed and blocked workers are summarized without stopping unrelated workers.
+- `resume-orchestrate` does not run `review-accept`, `worktree-apply`, `accept`, or GitHub merge.
 
 ## Future Work
 
