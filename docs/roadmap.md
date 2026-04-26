@@ -14,7 +14,8 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 | v0.6 durable orchestrator | complete | persistent orchestration state and safe resume to review boundary |
 | v0.7 public template hardening | complete | template init, redacted privacy evidence, release readiness reports |
 | v0.8 usability self-test | complete | one-command temporary smoke test for install readiness |
-| v0.9 quickstart wrapper | current | safe shell script for one-command setup and bounded task start |
+| v0.9 quickstart wrapper | complete | safe shell script for one-command setup and bounded task start |
+| v1.0 interactive wizard | current | prompt-driven setup, requirement capture, and review policy selection |
 
 ## Completed Capabilities
 
@@ -85,6 +86,12 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 - `scripts/agent-loop-quickstart.sh --init-only` runs self-test, init, template-init, and doctor.
 - The script can create a scoped task and start orchestration without accepting or merging changes.
 - `--run-codex` and `--watch` are explicit opt-ins.
+
+## v1.0 Acceptance
+
+- `scripts/agent-loop-wizard.sh` prompts for required project/task fields and optional execution settings.
+- The wizard records `review-policy.yaml` with `strict`, `smart`, or `auto`.
+- The wizard can initialize and start orchestration without automatically accepting, applying, committing, or merging.
 
 ## Future Work
 
