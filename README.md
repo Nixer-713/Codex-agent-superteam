@@ -219,6 +219,19 @@ The framework does **not** auto-merge PRs. GitHub remains the human review surfa
 
 
 
+
+## Public Template and Release Hardening v0.7
+
+Initialize reusable project defaults without machine-specific paths:
+
+```bash
+agent-loop template-init --root "$PROJECT_ROOT" --github-templates
+agent-loop privacy-scan --root "$PROJECT_ROOT"
+agent-loop release-check --root "$PROJECT_ROOT"
+```
+
+`template-init` creates a generic `.agent-loop/config.yaml` and optional GitHub issue/PR templates. `privacy-scan` redacts token-like matches in evidence, and `release-check` writes both yaml and markdown release readiness reports.
+
 ## Recover Interrupted Orchestration v0.6
 
 The orchestrator writes durable state to `.agent-loop/orchestrator-state.yaml` so interrupted sessions can be inspected and safely resumed:
