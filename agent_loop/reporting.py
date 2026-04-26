@@ -14,6 +14,7 @@ def create_final_report(run_dir: Path) -> Path:
         "Review": "review-decision.yaml",
         "Merge Result": "merge-result.yaml",
         "GitHub PR": "github-pr-check.yaml",
+        "GitHub Review Feedback": "github-review-comments.md",
         "Privacy": "privacy-scan.yaml",
     }
     required = ["changed-files.txt", "scope-check.yaml", "risk.yaml", "validation.yaml"]
@@ -68,6 +69,8 @@ def recommended_decision(run_dir: Path, missing: list[str], worker: dict[str, st
     if worker.get("status") in {"failed", "blocked"}:
         return "revise"
     if missing:
+        return "revise"
+    if (run_dir / "github-review-comments.yaml").exists() and "status: ok" in (run_dir / "github-review-comments.yaml").read_text(encoding="utf-8"):
         return "revise"
     if (run_dir / "risk.yaml").exists() and "risk: high" in (run_dir / "risk.yaml").read_text(encoding="utf-8"):
         return "escalate"

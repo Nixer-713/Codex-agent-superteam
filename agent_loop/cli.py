@@ -12,7 +12,8 @@ from .codex_runner import run_codex_worker
 from .dispatch import create_codex_command, create_worker_prompt, write_completion
 from .config import load_config
 from .doctor import has_failures, render_report, run_doctor
-from .github_issues import import_issue, issue_comment_command, write_issue_comment, write_pr_comments
+from .github_issues import import_issue, issue_comment_command, write_issue_comment
+from .github_reviews import import_pr_comments, write_github_revise_decision
 from .github_integration import (
     github_doctor,
     github_has_failures,
@@ -78,8 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     review_result = subparsers.add_parser("review-result", help="Record a review decision for a run")
     review_result.add_argument("run_id")
-    review_result.add_argument("--decision", required=True, choices=["accept", "revise", "split", "rollback", "escalate"])
-    review_result.add_argument("--reason", required=True)
+    review_result.add_argument("--decision", choices=["accept", "revise", "split", "rollback", "escalate"])
+    review_result.add_argument("--reason", default="")
+    review_result.add_argument("--from-github-comments", action="store_true")
     add_root(review_result)
 
     revise = subparsers.add_parser("revise", help="Create a revision worker prompt from review findings")
@@ -308,7 +310,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "review-result":
             run_dir = get_run(paths, args.run_id)
-            output = write_review_result(run_dir, args.decision, args.reason)
+            if args.from_github_comments:
+                output = write_github_revise_decision(run_dir)
+            else:
+                if not args.decision or not args.reason:
+                    print("error: --decision and --reason are required unless --from-github-comments is used", file=sys.stderr)
+                    return 2
+                output = write_review_result(run_dir, args.decision, args.reason)
             print(f"created {output}")
             return 0
         if args.command == "revise":
@@ -436,8 +444,9 @@ def main(argv: list[str] | None = None) -> int:
             return result.returncode
         if args.command == "github-pr-comments":
             run_dir = get_run(paths, args.run_id)
-            output = write_pr_comments(run_dir, Path(args.from_file) if args.from_file else None)
-            print(f"created {output}")
+            yaml_output, md_output = import_pr_comments(paths.root, run_dir, Path(args.from_file) if args.from_file else None)
+            print(f"created {yaml_output}")
+            print(f"created {md_output}")
             return 0
         if args.command == "privacy-scan":
             returncode, output = privacy_scan(paths.root)
