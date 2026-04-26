@@ -2,7 +2,16 @@
 
 Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable, GitHub-backed multi-agent automation system.
 
-## Completed
+## Release Milestones
+
+| Milestone | Status | Focus |
+|---|---:|---|
+| v0.1 local gates | complete | local task loop, Git diff evidence, scope and review gates |
+| v0.2 superteam framework | complete | state/resume, config, review loop, GitHub issue/PR helpers, privacy scan, final reports |
+| v0.3 multi-agent orchestration | complete | worktree-aware orchestration, path conflict blocking, lifecycle evidence |
+| v0.4 parallel runner | current | process-based worker launch, stdout/stderr logs, exit codes, duration, richer reports |
+
+## Completed Capabilities
 
 - Local task queue and run artifacts.
 - Bounded Codex worker prompts and mailbox completion signals.
@@ -10,29 +19,38 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 - Worktree merge evidence gates.
 - GitHub draft PR creation, PR body sync, CI watch, and PR check evidence.
 - GitHub Actions test workflow.
-- `v0.1.0-local-github-gates` milestone tag.
-
-## Current Development Track
-
 - Resumable run state via `state` and `resume`.
 - Project configuration via `.agent-loop/config.yaml`.
-- Basic multi-task orchestration via `orchestrate`.
 - Review decisions and revision prompts.
 - GitHub issue import from deterministic issue JSON.
 - Privacy scanning and release checks.
 - Final run reports.
+- Conservative multi-agent path conflict detection.
 
-## Future Work
-
-- Fully parallel Codex execution across worktrees. (v0.3 introduces worktree-aware orchestration evidence and watch handling.)
-- PR review comment ingestion for automated revise loops.
-- Rich conflict resolution between multiple workers.
-- Package publishing and signed releases.
-- Web or terminal dashboard for run status.
-
-## v0.3 Acceptance
+## v0.4 Acceptance
 
 - `orchestrate --parallel` starts unique workers and writes lifecycle evidence.
 - `orchestrate --worktree` records per-worker worktree metadata.
-- Path ownership conflicts are blocked before worker launch.
-- `orchestrate --watch` summarizes done, blocked, failed, and review-ready workers without crossing human gates.
+- `orchestrate --run-codex --watch` can launch and wait on multiple worker processes.
+- `orchestrate --run-command` supports deterministic runner tests and custom wrappers.
+- Each worker records `pid`, `exit_code`, `duration_seconds`, `worker.stdout.log`, and `worker.stderr.log`.
+- Worker failures are isolated and summarized without stopping unrelated workers.
+- `state` and `report` surface worker status, exit code, failure reason, and log paths.
+- `orchestrate-report.md` lists started, blocked, failed, review-ready workers, and next recommended commands.
+- Human gates remain intact: no automatic `review-accept`, `worktree-apply`, `accept`, PR merge, or high-risk override.
+
+## Future Work
+
+- Durable daemon mode for long-running orchestration across terminal restarts.
+- PR review comment ingestion that automatically generates revise attempts.
+- Richer conflict resolution beyond conservative path-prefix checks.
+- Dashboard or TUI for active workers, evidence gaps, and PR status.
+- Signed releases and package publishing.
+- Pluggable worker backends beyond Codex CLI.
+- Optional policy engine for team-specific risk thresholds and approval rules.
+
+## Public Template Rules
+
+- Documentation should use `$PROJECT_ROOT`, `/path/to/project`, and `https://github.com/<owner>/<repo>.git` placeholders.
+- Do not commit local run artifacts such as `.agent-runs/`, `.tasks/`, `.locks/`, or `.agent-loop/` runtime state.
+- Run `agent-loop privacy-scan --root .` and `agent-loop release-check --root .` before release PRs.
