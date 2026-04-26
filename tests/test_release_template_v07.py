@@ -47,7 +47,7 @@ def test_template_init_generates_generic_project_files(tmp_path):
     combined = config.read_text(encoding="utf-8") + issue.read_text(encoding="utf-8") + pr_template.read_text(encoding="utf-8")
     assert "$PROJECT_ROOT" in combined
     assert "/Users/" not in combined
-    assert "github_pat_" not in combined
+    assert ("github" + "_pat_") not in combined
 
 
 def test_privacy_scan_redacts_token_excerpts(tmp_path):
