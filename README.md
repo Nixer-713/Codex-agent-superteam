@@ -86,6 +86,41 @@ Or run directly from source:
 python3 -m agent_loop.cli --help
 ```
 
+
+## Simplified Script Quickstart
+
+If you prefer one command over many CLI steps, use the bundled safe wrapper script:
+
+```bash
+scripts/agent-loop-quickstart.sh --root "$PROJECT_ROOT" --init-only
+```
+
+Create and start a bounded task without crossing human gates:
+
+```bash
+scripts/agent-loop-quickstart.sh \
+  --root "$PROJECT_ROOT" \
+  --task "Add docs page" \
+  --allowed 'docs/**' \
+  --parallel 2 \
+  --worktree
+```
+
+To actually launch Codex workers, opt in explicitly:
+
+```bash
+scripts/agent-loop-quickstart.sh \
+  --root "$PROJECT_ROOT" \
+  --task "Add docs page" \
+  --allowed 'docs/**' \
+  --parallel 2 \
+  --worktree \
+  --run-codex \
+  --watch
+```
+
+The script runs `self-test`, initializes templates, runs `doctor`, creates a scoped task when requested, and starts orchestration. It never runs `accept`, `review-accept`, `worktree-apply`, commit, or PR merge.
+
 ## Quick Start
 
 Point the tool at any Git project:
