@@ -217,6 +217,26 @@ agent-loop github-pr-check "$RUN_ID" --root "$PROJECT_ROOT"
 
 The framework does **not** auto-merge PRs. GitHub remains the human review surface: Files changed, commits, checks, comments, blame, compare, and revert.
 
+
+## Review Feedback Loop v0.5
+
+Import GitHub PR review feedback into the local evidence chain, then generate a bounded revision attempt:
+
+```bash
+agent-loop github-pr-comments "$RUN_ID" --root "$PROJECT_ROOT"
+agent-loop review-result "$RUN_ID" --root "$PROJECT_ROOT" --from-github-comments
+agent-loop revise "$RUN_ID" --root "$PROJECT_ROOT" --agent-id worker-1
+agent-loop report "$RUN_ID" --root "$PROJECT_ROOT"
+```
+
+For deterministic tests or offline review imports, provide exported JSON:
+
+```bash
+agent-loop github-pr-comments "$RUN_ID" --root "$PROJECT_ROOT" --from-file /path/to/comments.json
+```
+
+The imported feedback is written to `github-review-comments.yaml` and `github-review-comments.md`. Revision prompts are written under `attempts/` and include the parent run id, original task scope, changed files, review decision, and GitHub comment locations. The system still does not auto-accept or auto-merge revised work.
+
 ## Recoverability and Reports
 
 Inspect or safely resume interrupted runs:
