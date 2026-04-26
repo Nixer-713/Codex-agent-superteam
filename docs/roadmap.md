@@ -13,7 +13,8 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 | v0.5 review revise loop | complete | GitHub review comments, revise decisions, attempt prompts, report feedback |
 | v0.6 durable orchestrator | complete | persistent orchestration state and safe resume to review boundary |
 | v0.7 public template hardening | complete | template init, redacted privacy evidence, release readiness reports |
-| v0.8 usability self-test | current | one-command temporary smoke test for install readiness |
+| v0.8 usability self-test | complete | one-command temporary smoke test for install readiness |
+| v0.9 quickstart wrapper | current | safe shell script for one-command setup and bounded task start |
 
 ## Completed Capabilities
 
@@ -78,6 +79,12 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 - `self-test` creates a temporary Git project and does not mutate the caller project.
 - `self-test` runs template initialization, task creation, completion evidence, safe resume, review evidence, and privacy scan.
 - `self-test` exits 0 and prints the generated temporary evidence paths when the framework is ready to use.
+
+## v0.9 Acceptance
+
+- `scripts/agent-loop-quickstart.sh --init-only` runs self-test, init, template-init, and doctor.
+- The script can create a scoped task and start orchestration without accepting or merging changes.
+- `--run-codex` and `--watch` are explicit opt-ins.
 
 ## Future Work
 
