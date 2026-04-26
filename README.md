@@ -87,6 +87,41 @@ python3 -m agent_loop.cli --help
 ```
 
 
+
+## Interactive Wizard
+
+If you do not want to remember CLI flags, use the interactive wizard:
+
+```bash
+scripts/agent-loop-wizard.sh
+```
+
+The wizard asks for required fields:
+
+- project root path
+- project name/background
+- task or requirement
+- allowed path scope
+
+It also asks optional fields:
+
+- forbidden path scope
+- validation command
+- parallel worker count
+- whether to use worktrees
+- whether to run Codex immediately
+- review policy
+
+Review policy options:
+
+| Policy | Meaning |
+|---|---|
+| `strict` | Always stop at human review gates before accept/apply/merge. |
+| `smart` | Intended for future automation that proceeds only when evidence is unambiguous and low risk. |
+| `auto` | Intended for future low-risk autopilot; still must stop on ambiguity, scope violations, high risk, failed validation, or missing evidence. |
+
+Current wizard behavior remains safe: it records the policy in `.agent-loop/review-policy.yaml`, starts automation, and does not run `accept`, `review-accept`, `worktree-apply`, commit, or PR merge.
+
 ## Simplified Script Quickstart
 
 If you prefer one command over many CLI steps, use the bundled safe wrapper script:
