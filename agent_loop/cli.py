@@ -44,6 +44,7 @@ from .review_loop import create_revise_prompt, decision_blocks_accept, write_rev
 from .template import template_init
 from .runs import create_run, get_run, run_task_id
 from .scope_guard import check_scope, write_scope_report
+from .self_test import run_self_test
 from .state_machine import resume_run, run_state
 from .tasks import activate_task, complete_active_task, create_task, first_pending, parse_task
 from .watch import WatchTimeout, WorkerBlocked, watch_run, write_blocked
@@ -217,6 +218,9 @@ def build_parser() -> argparse.ArgumentParser:
     github_pr_comments.add_argument("--from-file", default=None)
     github_pr_comments.add_argument("--dry-run", action="store_true")
     add_root(github_pr_comments)
+
+    self_test = subparsers.add_parser("self-test", help="Run a temporary end-to-end installation smoke test")
+    add_root(self_test)
 
     privacy = subparsers.add_parser("privacy-scan", help="Scan tracked files for private paths, tokens, and local artifacts")
     add_root(privacy)
@@ -462,6 +466,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"created {yaml_output}")
             print(f"created {md_output}")
             return 0
+        if args.command == "self-test":
+            returncode, output = run_self_test()
+            print(output, end="")
+            return returncode
         if args.command == "privacy-scan":
             returncode, output = privacy_scan(paths.root)
             print(f"created {output}")

@@ -220,6 +220,17 @@ The framework does **not** auto-merge PRs. GitHub remains the human review surfa
 
 
 
+
+## One-Command Self Test v0.8
+
+After installing the CLI, verify that the framework can create a temporary Git project, initialize templates, create a scoped task, produce run evidence, and pass privacy scanning:
+
+```bash
+agent-loop self-test
+```
+
+This command uses a temporary directory and does not modify your current project. It is the fastest way to confirm the framework is ready to use before pointing it at `$PROJECT_ROOT`.
+
 ## Public Template and Release Hardening v0.7
 
 Initialize reusable project defaults without machine-specific paths:

@@ -12,7 +12,8 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 | v0.4 parallel runner | complete | process-based worker launch, stdout/stderr logs, exit codes, duration, richer reports |
 | v0.5 review revise loop | complete | GitHub review comments, revise decisions, attempt prompts, report feedback |
 | v0.6 durable orchestrator | complete | persistent orchestration state and safe resume to review boundary |
-| v0.7 public template hardening | current | template init, redacted privacy evidence, release readiness reports |
+| v0.7 public template hardening | complete | template init, redacted privacy evidence, release readiness reports |
+| v0.8 usability self-test | current | one-command temporary smoke test for install readiness |
 
 ## Completed Capabilities
 
@@ -70,6 +71,13 @@ Codex Agent Superteam is moving from a local task-loop MVP toward a recoverable,
 - `privacy-scan` redacts token-like matches in evidence.
 - `release-check` writes both `release-check.yaml` and `release-check.md`.
 - Release checks include privacy, package version, version tag, and README presence.
+
+
+## v0.8 Acceptance
+
+- `self-test` creates a temporary Git project and does not mutate the caller project.
+- `self-test` runs template initialization, task creation, completion evidence, safe resume, review evidence, and privacy scan.
+- `self-test` exits 0 and prints the generated temporary evidence paths when the framework is ready to use.
 
 ## Future Work
 
